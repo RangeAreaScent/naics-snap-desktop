@@ -18,6 +18,14 @@ on:
 
 jobs:
   build:
+    # tauri-action calls the GitHub REST API to create / update the draft
+    # release. The default GITHUB_TOKEN has `contents: read` only since
+    # GitHub tightened defaults in 2022 — without `contents: write` the
+    # build succeeds but the upload step fails with
+    # "Resource not accessible by integration".
+    permissions:
+      contents: write
+
     strategy:
       fail-fast: false
       matrix:
