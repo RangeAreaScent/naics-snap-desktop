@@ -52,15 +52,29 @@ jobs:
       - name: build with tauri
         uses: tauri-apps/tauri-action@v0
         env:
-          # macOS signing (omit / leave blank for unsigned builds).
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows signing (optional; thumbprint + algorithm read from
-          # tauri.conf.json's bundle.windows config when present).
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Required: lets tauri-action create / update the GitHub Release
+          # and upload artifacts. Without this the build succeeds but the
+          # final upload step fails with "GITHUB_TOKEN is required".
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #
+          # --- Code signing (commented out) ----------------------------
+          # Empty signing env vars cause Tauri to ATTEMPT signing with an
+          # empty identity, which then fails ("item not found in keychain").
+          # We leave these commented until real certs are available. To
+          # enable: uncomment and add the matching repo secrets under
+          # Settings → Secrets and variables → Actions.
+          #
+          # macOS:
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          #
+          # Windows code signing (uses tauri-conf.json's bundle.windows
+          # certificateThumbprint by default; the env vars below are for
+          # tauri's optional .sig signing key for updater bundles):
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
