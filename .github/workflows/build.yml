@@ -1,6 +1,8 @@
-# Builds NAICS Snap Desktop for macOS (universal) and Windows on every tag
-# push matching v*. Output artifacts are attached to a draft GitHub Release
-# for the maintainer to review and publish.
+# Builds NAICS Snap Desktop for Windows on every tag push matching v*.
+# Output artifacts (MSI / NSIS .exe) are attached to a draft GitHub
+# Release for the maintainer to review and publish. The macOS universal
+# DMG is built locally on the dev Mac and uploaded to the same draft
+# release via the `snap-release-mac <tag>` helper — see HANDOFF §6.
 #
 # The Windows job runs on `windows-latest`, which has WebView2 preinstalled
 # and MSVC build tools — so a Mac-only developer can ship Windows MSI/NSIS
@@ -30,8 +32,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            args: --target universal-apple-darwin
           - platform: windows-latest
             args: ''
 
@@ -46,8 +46,6 @@ jobs:
 
       - name: setup rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: cache cargo
         uses: swatinem/rust-cache@v2
@@ -65,19 +63,11 @@ jobs:
           # final upload step fails with "GITHUB_TOKEN is required".
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           #
-          # --- Code signing (commented out) ----------------------------
-          # Empty signing env vars cause Tauri to ATTEMPT signing with an
-          # empty identity, which then fails ("item not found in keychain").
-          # We leave these commented until real certs are available. To
-          # enable: uncomment and add the matching repo secrets under
-          # Settings → Secrets and variables → Actions.
-          #
-          # macOS:
-          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          #
+          # Windows-only build. The macOS DMG is built locally on the dev
+          # Mac and uploaded to the same draft release via the
+          # `snap-release-mac <tag>` helper (see HANDOFF §6). Apple
+          # signing therefore happens against the local Keychain, not
+          # via repo secrets.
           # Windows code signing (uses tauri-conf.json's bundle.windows
           # certificateThumbprint by default; the env vars below are for
           # tauri's optional .sig signing key for updater bundles):
@@ -96,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
+        platform: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
