@@ -5,9 +5,9 @@
 - **Platform:** desktop
 - **Wave:** 1
 - **Stage:** 3 release
-- **Last updated:** 2026-05-30
+- **Last updated:** 2026-05-31
 - **Repo:** https://github.com/RangeAreaScent/naics-snap-desktop
-- **Latest release:** v1.0.0-beta.1 (draft, 2026-05-30)
+- **Latest release:** v1.0.0-beta.1 (pre-release, published 2026-05-31)
 - **Latest CI:** success on v1.0.0-beta.1
 - **Bundle id:** com.ryan.naicssnap
 - **Dataset:** `naics_2022.sqlite` (NAICS 2022, US Census Bureau), 2,129 rows, 6.7 MB, license: public domain (US Census)
@@ -15,11 +15,11 @@
 - **Active blockers:**
   - Apple Developer cert not acquired → Mac DMG unsigned, Gatekeeper warning on other Macs
   - Windows code-signing cert not acquired → SmartScreen warning on install
-  - Lemon Squeezy `product_id` check in `license.rs` still a no-op (Appendix B not applied)
+  - Lemon Squeezy `product_id` check wired (Appendix B applied) but `EXPECTED_PRODUCT_ID = 0` → still a no-op until the real LS product id is filled in
 - **Next 3 steps:**
-  1. Publish the v1.0.0-beta.1 draft release on GitHub and run beta smoke test on Mac + Windows
-  2. Apply the Lemon Squeezy `product_id` check per HANDOFF Appendix B before cutting v1.0.0
-  3. Promote to v1.0.0 (bump four version locations, tag, push, watch CI)
+  1. Run beta smoke test on Mac + Windows against the published v1.0.0-beta.1 pre-release
+  2. Set `EXPECTED_PRODUCT_ID` in `src-tauri/src/license.rs` to the real Lemon Squeezy product id before cutting v1.0.0
+  3. Promote to v1.0.0 (bump three version locations, tag, push, watch CI; build Mac DMG locally via `snap-release-mac`)
 - **Report-back trigger:** any `v*` tag push, any commit touching `license.rs` / `tauri.conf.json` / `.github/workflows/`, any Lemon Squeezy milestone, any dataset swap, any SPEC change
 <!-- snap-series:manager-block:end -->
 

@@ -13,7 +13,7 @@
 >    incidents, commands used) that doesn't belong in the manager block.
 > 3. Rest of `HANDOFF.md` — project architecture / maintenance reference.
 >
-> Last refresh: 2026-05-30 (after CI Win-only switch).
+> Last refresh: 2026-05-31 (after beta.1 pre-release publish + LS product_id wiring).
 
 ---
 
@@ -22,14 +22,14 @@
 - **Project:** NAICS Snap Desktop — Tauri 2 + React 19 + TS port of the iOS NAICS Snap app. Mirrors ICD Snap Desktop's architecture.
 - **Local path:** `/Users/ryan/Library/Mobile Documents/com~apple~CloudDocs/App Projects/NAICS Snap_Mac_Win_app/`
 - **Repo (private):** https://github.com/RangeAreaScent/naics-snap-desktop
-- **Latest release:** `v1.0.0-beta.1` (draft, with 4 assets: Mac universal DMG, Mac .app.tar.gz, Win MSI, Win NSIS .exe).
+- **Latest release:** `v1.0.0-beta.1` (pre-release as of 2026-05-31, with 4 assets: Mac universal DMG, Mac .app.tar.gz, Win MSI, Win NSIS .exe). URL: https://github.com/RangeAreaScent/naics-snap-desktop/releases/tag/v1.0.0-beta.1
 - **Latest CI:** ✅ success on run `26673888500` (icon swap, 2026-05-30 03:58 UTC, 7m11s). All earlier failures were CI-config issues, not code.
 - **Build topology (current):** **Windows is CI**, **Mac is local** (built on this dev Mac via the user's `snap-release-mac` helper, uploaded manually to the same draft release). Switched mid-session in commit `870d9b3`.
 - **Next 3 steps (per HANDOFF manager-block):**
-  1. Publish the v1.0.0-beta.1 draft and run beta smoke test on Mac + Windows.
-  2. Apply the Lemon Squeezy `product_id` check (HANDOFF Appendix B).
-  3. Promote to v1.0.0 (bump version in 3 places, tag, push, watch CI).
-- **Active blockers:** Apple Developer cert, Windows code-sign cert, and LS `product_id` no-op — all known and documented in the manager-block.
+  1. Run beta smoke test on Mac + Windows against the published v1.0.0-beta.1 pre-release.
+  2. Set `EXPECTED_PRODUCT_ID` in `license.rs` to the real Lemon Squeezy product id (wiring already in place).
+  3. Promote to v1.0.0 (bump version in 3 places, tag, push, watch CI; build Mac DMG locally).
+- **Active blockers:** Apple Developer cert, Windows code-sign cert, and LS `EXPECTED_PRODUCT_ID = 0` (wiring landed, just needs the real id) — all known and documented in the manager-block.
 
 ---
 
@@ -147,20 +147,15 @@ Heavy use of `gh run watch` (polls every 2-3s) burned the 5000/hr API budget dur
 Aligned with the `HANDOFF.md` manager-block "Next 3 steps":
 
 ### 5.1 Publish v1.0.0-beta.1 draft + smoke test
-- Draft URL (private): currently `https://github.com/RangeAreaScent/naics-snap-desktop/releases/tag/untagged-155a4a4a1307ecfc94f4` (will move to the `v1.0.0-beta.1` slug when published).
-- Publish as **pre-release** (not full release): `gh release edit v1.0.0-beta.1 --draft=false --prerelease`.
-- Smoke checklist: `HANDOFF.md §14 "Manual smoke test"` (Mac) + `§14 "Windows stability test plan"` (Win).
+- **DONE 2026-05-31**: published as pre-release. URL: `https://github.com/RangeAreaScent/naics-snap-desktop/releases/tag/v1.0.0-beta.1` (`draft:false`, `prerelease:true`). All 4 assets attached.
+- Remaining: run the smoke checklist on Mac + Windows. `HANDOFF.md §14 "Manual smoke test"` (Mac) + `§14 "Windows stability test plan"` (Win).
   - Mac: open .app from DMG, exercise all 5 tabs, premium hidden rhythm, PDF export with Korean chars, theme + font switch, restart persistence.
   - Win: install MSI on Win 10/11, exercise the same plus check `%APPDATA%\com.ryan.naicssnap\` is created, `%TEMP%\naicssnap-startup.log` doesn't exist (means no crash), SmartScreen "More info → Run anyway" works.
 
 ### 5.2 Apply Lemon Squeezy `product_id` check (HANDOFF Appendix B)
-- Edit `src-tauri/src/license.rs`:
-  - Add `EXPECTED_PRODUCT_ID: u64 = <real LS product id>` near the top.
-  - Add `meta: Option<Meta>` to `ActivateResp` and `ValidateResp`.
-  - Add `Meta { product_id: u64 }` deserialize struct.
-  - Add `product_id_ok(meta)` helper.
-  - Use it in `activate` (return error on mismatch) and in `validate` (treat mismatch as `valid: false`, clear stored license).
-- Test path: create a test LS key for a different product → confirm it's rejected.
+- **Wiring DONE 2026-05-31** — `license.rs` now has `EXPECTED_PRODUCT_ID`, the `Meta` struct, `product_id_ok`, and the checks in `activate` + `validate`. `cargo check --lib` and `cargo test --lib` both green.
+- **Still TODO**: set `EXPECTED_PRODUCT_ID` from `0` to the real Lemon Squeezy product id (from the LS dashboard URL). While it stays `0`, `product_id_ok` short-circuits to `true` and behavior is unchanged.
+- Test path: create a test LS key for a different product → confirm it's rejected once `EXPECTED_PRODUCT_ID` is set.
 
 ### 5.3 Promote to v1.0.0
 - Bump version in **three places** (per `HANDOFF.md §9`):
