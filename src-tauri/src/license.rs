@@ -22,6 +22,11 @@ const STORE_NAME: &str = "license";
 const OVERRIDE_STORE: &str = "premium_override";
 const INSTANCE_NAME: &str = "NAICS Snap Desktop";
 
+/// Lemon Squeezy product id this binary accepts license keys for.
+/// `0` disables the check (any key for any product in the LS account works).
+/// Set to the real product id from the LS dashboard URL before v1.0.0.
+const EXPECTED_PRODUCT_ID: u64 = 0;
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LicenseState {
@@ -35,6 +40,7 @@ struct ActivateResp {
     activated: bool,
     error: Option<String>,
     instance: Option<Instance>,
+    meta: Option<Meta>,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +51,17 @@ struct Instance {
 #[derive(Deserialize)]
 struct ValidateResp {
     valid: bool,
+    meta: Option<Meta>,
+}
+
+#[derive(Deserialize)]
+struct Meta {
+    product_id: u64,
+}
+
+fn product_id_ok(meta: &Option<Meta>) -> bool {
+    EXPECTED_PRODUCT_ID == 0
+        || meta.as_ref().map(|m| m.product_id) == Some(EXPECTED_PRODUCT_ID)
 }
 
 fn save(dir: &Path, state: &LicenseState) -> Result<(), String> {
@@ -106,10 +123,10 @@ pub fn activate(dir: &Path, key: &str) -> Result<LicenseState, String> {
     let resp: ActivateResp = serde_json::from_str(&body)
         .map_err(|_| "Unexpected response from the license server.".to_string())?;
 
-    if !resp.activated {
-        return Err(resp
-            .error
-            .unwrap_or_else(|| "This license key could not be activated.".into()));
+    if !resp.activated || !product_id_ok(&resp.meta) {
+        return Err(resp.error.unwrap_or_else(|| {
+            "This license key is not valid for NAICS Snap.".into()
+        }));
     }
 
     let state = LicenseState {
@@ -132,7 +149,7 @@ pub fn validate(dir: &Path) -> LicenseState {
             ) {
                 Err(_) => stored,
                 Ok(body) => match serde_json::from_str::<ValidateResp>(&body) {
-                    Ok(resp) if resp.valid => stored,
+                    Ok(resp) if resp.valid && product_id_ok(&resp.meta) => stored,
                     Ok(_) => {
                         let _ = save(dir, &LicenseState::default());
                         LicenseState::default()
