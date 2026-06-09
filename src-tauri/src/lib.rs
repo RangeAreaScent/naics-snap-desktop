@@ -1,6 +1,9 @@
 mod business_terms;
 mod license;
-mod naics;
+mod menu;
+// `pub` so tests/naics_db_integration.rs can drive the data layer
+// end-to-end against the bundled SQLite — see HANDOFF §14.
+pub mod naics;
 mod pdf;
 mod store;
 
@@ -185,8 +188,13 @@ pub fn run() {
                 e
             })?;
             app.manage(AppState { db_path, data_dir });
+            if let Err(e) = menu::install(app.handle()) {
+                write_crash_log("install_menu", &e.to_string());
+                return Err(e.into());
+            }
             Ok(())
         })
+        .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         .invoke_handler(tauri::generate_handler![
             search_codes,
             get_code_detail,

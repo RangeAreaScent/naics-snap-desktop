@@ -21,6 +21,9 @@ import type {
 export const FREE_FAVORITES_MAX = 15;
 export const FREE_COLLECTIONS_MAX = 10;
 
+/** Max recent codes kept in persistent history. Oldest entries are dropped. */
+export const RECENT_MAX = 50;
+
 function usePersistentState<T>(
   name: string,
   initial: T,
@@ -68,6 +71,10 @@ function toItem(item: SearchResult): CollectionItem {
 interface AppData {
   ready: boolean;
 
+  recents: SearchResult[];
+  pushRecent: (item: SearchResult) => void;
+  clearRecents: () => void;
+
   favorites: Favorite[];
   isFavorite: (code: string) => boolean;
   toggleFavorite: (item: SearchResult) => void;
@@ -96,6 +103,10 @@ const AppDataContext = createContext<AppData | null>(null);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const { unlocked } = useSettings();
+  const [recents, updateRecents, recentsReady] = usePersistentState<SearchResult[]>(
+    "recents",
+    [],
+  );
   const [favorites, updateFavorites, favReady] = usePersistentState<Favorite[]>(
     "favorites",
     [],
@@ -108,6 +119,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     {},
   );
   const [premiumPrompt, setPremiumPrompt] = useState<string | null>(null);
+
+  const pushRecent = useCallback(
+    (item: SearchResult) => {
+      updateRecents((prev) => {
+        const filtered = prev.filter((r) => r.code !== item.code);
+        return [item, ...filtered].slice(0, RECENT_MAX);
+      });
+    },
+    [updateRecents],
+  );
+
+  const clearRecents = useCallback(() => {
+    updateRecents(() => []);
+  }, [updateRecents]);
 
   const favoritesMax = unlocked ? Infinity : FREE_FAVORITES_MAX;
   const collectionsMax = unlocked ? Infinity : FREE_COLLECTIONS_MAX;
@@ -253,7 +278,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   return (
     <AppDataContext.Provider
       value={{
-        ready: favReady && colReady && notesReady,
+        ready: favReady && colReady && notesReady && recentsReady,
+        recents,
+        pushRecent,
+        clearRecents,
         favorites,
         isFavorite,
         toggleFavorite,

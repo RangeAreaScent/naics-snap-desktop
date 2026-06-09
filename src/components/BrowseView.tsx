@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listChildren, listSectors } from "../api";
+import { useListKeyNav } from "../hooks/useListKeyNav";
 import { levelLabel, sectorColor, sectorDisplayCode } from "../sectors";
 import type { HierarchyNode, SectorEntry } from "../types";
 
@@ -59,6 +60,16 @@ export function BrowseView({ selectedCode, onSelect }: Props) {
   function reset() {
     setCrumbs([]);
   }
+
+  // Phase A — ↑↓ navigation across leaf (selectable) children only.
+  const navItems = useMemo(
+    () =>
+      children
+        .filter((n) => n.level >= 6 || n.childCount === 0)
+        .map((n) => ({ code: n.code })),
+    [children],
+  );
+  useListKeyNav(navItems, selectedCode, onSelect);
 
   if (error) {
     return (
@@ -162,6 +173,7 @@ export function BrowseView({ selectedCode, onSelect }: Props) {
               className={`code-row${
                 leaf && n.code === selectedCode ? " code-row--selected" : ""
               }`}
+              data-code={leaf ? n.code : undefined}
               role="button"
               tabIndex={0}
               onClick={() => openNode(n)}

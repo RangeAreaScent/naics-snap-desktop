@@ -5,22 +5,23 @@
 - **Platform:** desktop
 - **Wave:** 1
 - **Stage:** 3 release
-- **Last updated:** 2026-05-31
+- **Last updated:** 2026-06-09
 - **Repo:** https://github.com/RangeAreaScent/naics-snap-desktop
 - **Latest release:** v1.0.0-beta.1 (pre-release, published 2026-05-31)
 - **Latest CI:** success on v1.0.0-beta.1
 - **Bundle id:** com.ryan.naicssnap
 - **Dataset:** `naics_2022.sqlite` (NAICS 2022, US Census Bureau), 2,129 rows, 6.7 MB, license: public domain (US Census)
-- **Deviations from playbook:** none
+- **Deviations from playbook:**
+  - SNAP_DESKTOP_IMPROVEMENT_PLAN Phase A~D + Polish + 3-modal Settings applied 2026-06-09; deviations from Tariff UK reference (NAICS has no Calculator tab + no domain-special toggle): ⌘K Actions group omitted, File→Export Calculator menu item omitted, NI Mode sidebar badge omitted. Tab order is Search/Browse/Favorites/Collections/Settings (⌘1~5 mapped accordingly). HowToUse modal swaps Calculator section for SBA Size Standards section (NAICS-specific) and Browse section (sector drilldown, with grouped sector 31-33/44-45/48-49 explainer); Database/About modals reflect Census Bureau + SBA public-domain sourcing instead of HMRC OGL v3.0.
 - **Active blockers:**
   - Apple Developer cert not acquired → Mac DMG unsigned, Gatekeeper warning on other Macs
   - Windows code-signing cert not acquired → SmartScreen warning on install
   - Lemon Squeezy `product_id` check wired (Appendix B applied) but `EXPECTED_PRODUCT_ID = 0` → still a no-op until the real LS product id is filled in
 - **Next 3 steps:**
-  1. Run beta smoke test on Mac + Windows against the published v1.0.0-beta.1 pre-release
+  1. One-shot manual smoke test of Phase A~D + Polish via `npm run tauri dev` (CLI checks already cover the data layer + menu contract): verify ↑↓ navigation, ⌘1~5 / ⌘C / ⌘D / ⌘K / ⌘E shortcuts, splitter drag persistence, narrow-window overlay, native menu bar (macOS + Windows), status bar, Favorites multi-select bulk actions, `ask()` dialogs on Delete/Deactivate
   2. Set `EXPECTED_PRODUCT_ID` in `src-tauri/src/license.rs` to the real Lemon Squeezy product id before cutting v1.0.0
-  3. Promote to v1.0.0 (bump three version locations, tag, push, watch CI; build Mac DMG locally via `snap-release-mac`)
-- **Report-back trigger:** any `v*` tag push, any commit touching `license.rs` / `tauri.conf.json` / `.github/workflows/`, any Lemon Squeezy milestone, any dataset swap, any SPEC change
+  3. Cut v1.1.0-beta with the UX improvements (bump three version locations, tag, push, watch CI; build Mac DMG locally via `snap-release-mac`)
+- **Report-back trigger:** any `v*` tag push, any commit touching `license.rs` / `tauri.conf.json` / `.github/workflows/` / `menu.rs`, any Lemon Squeezy milestone, any dataset swap, any SPEC change
 <!-- snap-series:manager-block:end -->
 
 > Last updated 2026-05-24. App version 1.0.0.
@@ -642,18 +643,42 @@ See [Appendix B](#appendix-b--hardening-lemon-squeezy).
 ### Rust
 ```bash
 cd src-tauri
-cargo test --lib
+cargo test            # everything (lib + integration)
+cargo test --lib      # just the in-crate unit tests
+cargo test --test naics_db_integration   # bundled-DB integration only
 ```
-Suite (in `src/pdf.rs`):
-- `produces_a_valid_ascii_pdf` — generates an English PDF with page break,
-  asserts `%PDF-` header + `%%EOF`.
-- `produces_a_small_korean_pdf` — Korean content with em-dash, asserts
-  file size < 400 KB (verifies subsetting actually happened).
-- `wrap_handles_long_words_and_cjk` — word-wrap unit tests.
 
-No tests for `naics.rs` / `license.rs` / `store.rs` yet — manual smoke
-tests cover them. Adding a `naics.rs` integration test that opens the
-bundled DB and runs a known query is a high-value next addition.
+**Lib unit tests** (`src/pdf.rs`, `src/menu.rs`):
+- `pdf::produces_a_valid_ascii_pdf` — generates an English PDF with page
+  break, asserts `%PDF-` header + `%%EOF`.
+- `pdf::produces_a_small_korean_pdf` — Korean content with em-dash,
+  asserts file size < 400 KB (verifies subsetting actually happened).
+- `pdf::wrap_handles_long_words_and_cjk` — word-wrap unit tests.
+- `menu::help_url_routes_known_help_items` — pins Help-submenu URLs
+  (privacy + Census Bureau) so a typo doesn't ship a 404.
+- `menu::help_url_returns_none_for_react_routed_items` — guards against
+  a non-Help menu item accidentally getting a `help.*` shape that would
+  hijack it into the URL opener.
+- `menu::menu_ids_follow_scope_dot_action_convention` — enforces
+  `<scope>.<snake_case_action>` for the React↔Rust menu contract.
+
+**Integration tests** (`tests/naics_db_integration.rs`) — opens the
+bundled `resources/naics_2022.sqlite` and exercises the data path that
+Phase A~D, ⌘K palette, and Browse all depend on. Catches schema drift
+on a year refresh (NAICS 2027) without needing a running webview:
+- `search_by_industry_term_returns_results` ("software" → 5415/5112)
+- `search_by_code_prefix_returns_descendants` (LIKE branch)
+- `search_via_business_shortcut_expands` ("SaaS" → software publishers)
+- `fetch_detail_for_known_code_carries_hierarchy_and_sba` (541512 with
+  SBA threshold populated)
+- `fetch_detail_for_unknown_code_returns_none` (defensive)
+- `list_sectors_returns_canonical_twenty` (24 DB rows collapse to 20)
+- `list_children_widens_grouped_sectors` ("31" widens to 31/32/33 —
+  HANDOFF §13 gotcha #7)
+- `list_children_for_ungrouped_sector_stays_narrow` (sector 54)
+
+No tests for `license.rs` / `store.rs` yet — covered by manual smoke
+tests because they involve network and OS-data-dir paths respectively.
 
 ### Frontend
 No automated tests yet. Components are decoupled (state vs. presentation)
